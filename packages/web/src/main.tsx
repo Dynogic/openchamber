@@ -8,10 +8,36 @@ import '@openchamber/ui/styles/fonts';
 declare global {
   interface Window {
     __OPENCHAMBER_RUNTIME_APIS__?: RuntimeAPIs;
+    __OPENCHAMBER_SURFACE__?: HostedSurface;
   }
 }
 
 window.__OPENCHAMBER_RUNTIME_APIS__ = createWebAPIs();
+
+type HostedSurface = 'desktop' | 'mobile';
+
+const isCoarsePointer = (): boolean => {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return false;
+  }
+
+  return window.matchMedia('(pointer: coarse)').matches;
+};
+
+const detectHostedSurface = (): HostedSurface => {
+  const params = new URLSearchParams(window.location.search);
+  const override = params.get('surface');
+  if (override === 'mobile') return 'mobile';
+  if (override === 'desktop') return 'desktop';
+
+  const width = Math.min(window.innerWidth || 0, window.screen?.width || window.innerWidth || 0);
+  const touchPoints = navigator.maxTouchPoints || 0;
+  const likelyPhone = width > 0 && width <= 760 && (touchPoints > 0 || isCoarsePointer());
+  return likelyPhone ? 'mobile' : 'desktop';
+};
+
+const hostedSurface = detectHostedSurface();
+window.__OPENCHAMBER_SURFACE__ = hostedSurface;
 
 type PrerenderingDocument = Document & {
   prerendering?: boolean;
@@ -78,7 +104,14 @@ const unregisterDevelopmentServiceWorkers = (): void => {
   });
 };
 
-void import('@openchamber/ui/main');
+if (hostedSurface === 'mobile') {
+  void import('@openchamber/ui/apps/renderMobileApp')
+    .then(({ renderMobileApp }) => {
+      renderMobileApp(window.__OPENCHAMBER_RUNTIME_APIS__ ?? createWebAPIs());
+    });
+} else {
+  void import('@openchamber/ui/main');
+}
 
 if (import.meta.env.PROD) {
   registerPwaServiceWorker();
