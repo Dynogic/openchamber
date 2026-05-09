@@ -25,8 +25,10 @@ import { useConfigStore } from '@/stores/useConfigStore';
 import { useDirectoryStore } from '@/stores/useDirectoryStore';
 import { useFeatureFlagsStore } from '@/stores/useFeatureFlagsStore';
 import { useGitHubAuthStore } from '@/stores/useGitHubAuthStore';
-import { useGitStatus } from '@/stores/useGitStore';
+import { useGitStatus, useGitStore } from '@/stores/useGitStore';
 import { useProjectsStore } from '@/stores/useProjectsStore';
+import { listProjectWorktrees } from '@/lib/worktrees/worktreeManager';
+import type { WorktreeMetadata } from '@/types/worktree';
 import { useUIStore } from '@/stores/useUIStore';
 import { useSessionUIStore } from '@/sync/session-ui-store';
 import { SyncProvider, useAllLiveSessions } from '@/sync/sync-context';
@@ -321,6 +323,7 @@ export function MobileApp({ apis }: MobileAppProps) {
   const setIsMobile = useUIStore((state) => state.setIsMobile);
   const refreshGitHubAuthStatus = useGitHubAuthStore((state) => state.refreshStatus);
   const setPlanModeEnabled = useFeatureFlagsStore((state) => state.setPlanModeEnabled);
+  const projects = useProjectsStore((state) => state.projects);
 
   React.useEffect(() => {
     registerRuntimeAPIs(apis);
@@ -349,6 +352,50 @@ export function MobileApp({ apis }: MobileAppProps) {
   React.useEffect(() => {
     void refreshGitHubAuthStatus(apis.github, { force: true });
   }, [apis.github, refreshGitHubAuthStatus]);
+
+  // Discover all worktrees for every known project so the draft session's
+  // worktree/branch dropdown can list every available branch — not only the
+  // current one. Mirrors ElectronMiniChatApp + desktop SessionSidebar.
+  React.useEffect(() => {
+    if (projects.length === 0) return;
+    let cancelled = false;
+
+    const run = async () => {
+      const worktreesByProject = new Map<string, WorktreeMetadata[]>();
+      const allWorktrees: WorktreeMetadata[] = [];
+
+      await Promise.all(
+        projects.map(async (project) => {
+          const projectPath = project.path.replace(/\\/g, '/').replace(/\/+$/, '');
+          if (!projectPath) return;
+          try {
+            const cachedIsGitRepo = useGitStore.getState().directories.get(projectPath)?.isGitRepo;
+            const isGitRepo =
+              cachedIsGitRepo ?? (await import('@/lib/gitApi').then((m) => m.checkIsGitRepository(projectPath)));
+            if (!isGitRepo) return;
+            const worktrees = await listProjectWorktrees({ id: project.id, path: projectPath });
+            if (cancelled || worktrees.length === 0) return;
+            worktreesByProject.set(projectPath, worktrees);
+            allWorktrees.push(...worktrees);
+          } catch {
+            // Worktree discovery is best-effort; draft selector falls back to the project root.
+          }
+        }),
+      );
+
+      if (cancelled) return;
+      useSessionUIStore.setState({
+        availableWorktrees: allWorktrees,
+        availableWorktreesByProject: worktreesByProject,
+      });
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projects]);
 
   React.useEffect(() => {
     let cancelled = false;

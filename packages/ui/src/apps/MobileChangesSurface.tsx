@@ -348,7 +348,25 @@ export const MobileChangesSurface: React.FC<MobileChangesSurfaceProps> = ({ onCl
         const trackingRemoteName = status?.tracking?.split('/')[0];
         const remote = effectiveRemotes.find((entry) => entry.name === trackingRemoteName) ?? effectiveRemotes[0];
         if (!remote) throw new Error(t('mobile.changes.noRemote'));
-        await handleSyncAction('sync', remote);
+        setSyncAction('sync');
+        const trackingPrefix = `${remote.name}/`;
+        const trackedBranch = status?.tracking?.startsWith(trackingPrefix)
+          ? status.tracking.slice(trackingPrefix.length)
+          : undefined;
+
+        await git.gitFetch(currentDirectory, { remote: remote.name });
+        const afterFetch = await git.getGitStatus(currentDirectory);
+        if ((afterFetch.behind ?? 0) > 0) {
+          await git.gitPull(currentDirectory, { remote: remote.name, branch: trackedBranch, rebase: true });
+        }
+
+        const afterPull = await git.getGitStatus(currentDirectory);
+        if ((afterPull.ahead ?? 0) > 0) {
+          await git.gitPush(currentDirectory);
+        }
+
+        await refreshStatusAndBranches(false);
+        await refreshRemotes();
       } else {
         await refreshStatusAndBranches(false);
       }
@@ -356,6 +374,7 @@ export const MobileChangesSurface: React.FC<MobileChangesSurfaceProps> = ({ onCl
       toast.error(error instanceof Error ? error.message : t('gitView.toast.createCommitFailed'));
     } finally {
       setCommitAction(null);
+      if (options.pushAfter) setSyncAction(null);
     }
   };
 
