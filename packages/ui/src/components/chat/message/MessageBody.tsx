@@ -1581,7 +1581,6 @@ const AssistantMessageBody = React.memo(({
                                     parts={flatReasoningParts}
                                     messageId={messageId}
                                     onContentChange={onContentChange}
-                                    alwaysShowActions={alwaysShowMessageActions}
                                 />
                             );
                         }
@@ -1593,7 +1592,6 @@ const AssistantMessageBody = React.memo(({
                                 part={part}
                                 messageId={messageId}
                                 onContentChange={onContentChange}
-                                alwaysShowActions={alwaysShowMessageActions}
                             />
                         );
                     }

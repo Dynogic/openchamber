@@ -93,7 +93,6 @@ type ReasoningTimelineBlockProps = {
     showDuration?: boolean;
     isStreaming?: boolean;
     actions?: React.ReactNode;
-    alwaysShowActions?: boolean;
     /** Override the initial expanded state. Defaults to `isStreaming`. */
     defaultExpanded?: boolean;
 };
@@ -113,6 +112,9 @@ export const ReasoningTimelineBlock: React.FC<ReasoningTimelineBlockProps> = ({
     const [isExpanded, setIsExpanded] = React.useState(defaultExpanded ?? isStreaming);
     const contentId = React.useId();
     const scrollRef = React.useRef<HTMLElement>(null);
+    // Track previous isStreaming so the effect only collapses on true→false
+    // transitions and does NOT override defaultExpanded on initial mount.
+    const prevIsStreamingRef = React.useRef(isStreaming);
 
     const summary = React.useMemo(() => getReasoningSummary(text), [text]);
     const timeStart = typeof time?.start === 'number' && Number.isFinite(time.start) ? time.start : undefined;
@@ -134,7 +136,13 @@ export const ReasoningTimelineBlock: React.FC<ReasoningTimelineBlockProps> = ({
     }, [handleToggle]);
 
     React.useEffect(() => {
-        setIsExpanded(isStreaming);
+        const wasStreaming = prevIsStreamingRef.current;
+        prevIsStreamingRef.current = isStreaming;
+        // Auto-collapse only when streaming ends (true → false).
+        // Do not fire on mount so that defaultExpanded is respected.
+        if (wasStreaming && !isStreaming) {
+            setIsExpanded(false);
+        }
     }, [isStreaming]);
 
     React.useEffect(() => {
@@ -286,14 +294,12 @@ type ReasoningPartProps = {
     part: Part;
     onContentChange?: (reason?: ContentChangeReason) => void;
     messageId: string;
-    alwaysShowActions?: boolean;
 };
 
 const ReasoningPart = React.memo(({
     part,
     onContentChange,
     messageId,
-    alwaysShowActions = false,
 }: ReasoningPartProps) => {
     const chatRenderMode = useUIStore((state) => state.chatRenderMode);
     const partWithText = part as PartWithText;
@@ -322,7 +328,6 @@ const ReasoningPart = React.memo(({
             time={time}
             showDuration={chatRenderMode !== 'sorted'}
             isStreaming={isStreaming}
-            alwaysShowActions={alwaysShowActions}
         />
     );
 });
@@ -331,7 +336,6 @@ type MergedReasoningPartProps = {
     parts: Part[];
     onContentChange?: (reason?: ContentChangeReason) => void;
     messageId: string;
-    alwaysShowActions?: boolean;
 };
 
 /**
@@ -343,7 +347,6 @@ export const MergedReasoningPart = React.memo(({
     parts,
     onContentChange,
     messageId,
-    alwaysShowActions = false,
 }: MergedReasoningPartProps) => {
     const chatRenderMode = useUIStore((state) => state.chatRenderMode);
 
@@ -403,7 +406,6 @@ export const MergedReasoningPart = React.memo(({
             time={mergedTime}
             showDuration={chatRenderMode !== 'sorted'}
             isStreaming={isStreaming}
-            alwaysShowActions={alwaysShowActions}
         />
     );
 });
