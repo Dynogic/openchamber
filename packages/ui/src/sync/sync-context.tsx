@@ -2042,11 +2042,22 @@ export function useGlobalSyncSelector<T>(selector: (state: GlobalSyncStore) => T
   return useGlobalSyncStore(selector)
 }
 
-/** Get the child store for a directory (defaults to current) */
-export function useDirectoryStore(directory?: string): StoreApi<DirectoryStore> {
+/**
+ * Get the child store for a directory (defaults to current).
+ *
+ * Pass `{ bootstrap: false }` when you only need the store reference for an
+ * on-demand `getState()` (not live subscription) and must NOT trigger a full
+ * directory bootstrap. This avoids storms of pointless session-list fetches +
+ * empty-retry loops for directories that are merely referenced by sidebar rows
+ * (e.g. archived sessions on deleted worktrees).
+ */
+export function useDirectoryStore(
+  directory?: string,
+  options?: { bootstrap?: boolean },
+): StoreApi<DirectoryStore> {
   const system = useSyncSystem()
   const dir = directory ?? system.directory
-  return system.childStores.ensureChild(dir)
+  return system.childStores.ensureChild(dir, options)
 }
 
 /** Select from the current directory's store */
