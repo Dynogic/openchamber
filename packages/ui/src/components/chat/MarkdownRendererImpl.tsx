@@ -372,16 +372,35 @@ const TableWrapper: React.FC<{ children?: React.ReactNode; className?: string }>
   const tableRef = React.useRef<HTMLDivElement>(null);
   const { isMobile, isTablet } = useDeviceInfo();
   const alwaysShowActions = isMobile || isTablet;
+  const [showActions, setShowActions] = React.useState(alwaysShowActions);
+
+  React.useEffect(() => {
+    if (alwaysShowActions) {
+      setShowActions(true);
+    }
+  }, [alwaysShowActions]);
 
   return (
-    <div className="group my-4 flex flex-col space-y-2" data-markdown="table-wrapper" ref={tableRef}>
-      <div className={cn(
-        "flex items-center justify-end gap-1 transition-opacity",
-        alwaysShowActions ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-      )}>
-        <TableCopyButton tableRef={tableRef} />
-        <TableDownloadButton tableRef={tableRef} />
-      </div>
+    <div
+      className="group my-4 flex flex-col space-y-2"
+      data-markdown="table-wrapper"
+      ref={tableRef}
+      onMouseEnter={() => setShowActions(true)}
+      onMouseLeave={() => {
+        if (!alwaysShowActions) {
+          setShowActions(false);
+        }
+      }}
+      onFocusCapture={() => setShowActions(true)}
+    >
+      {showActions ? (
+        <div className="flex items-center justify-end gap-1 transition-opacity">
+          <TableCopyButton tableRef={tableRef} />
+          <TableDownloadButton tableRef={tableRef} />
+        </div>
+      ) : (
+        <div className="h-6" aria-hidden="true" />
+      )}
       <div className="overflow-x-auto rounded-lg border border-border/80 bg-[var(--surface-elevated)]">
         <table className={cn('w-full border-collapse text-sm', className)} data-markdown="table">
           {children}
@@ -626,6 +645,7 @@ export type MarkdownVariant = 'assistant' | 'tool' | 'reasoning';
 
 const MARKDOWN_REMARK_PLUGINS: ReactMarkdownOptions['remarkPlugins'] = [remarkGfm, remarkMath];
 const MARKDOWN_REHYPE_PLUGINS: ReactMarkdownOptions['rehypePlugins'] = [[rehypeKatex, { throwOnError: false, errorColor: 'var(--destructive)' }]];
+const MARKDOWN_BLOCK_CACHE_MAX_ENTRIES = 240;
 
 type MarkdownStreamBlock = {
   key: string;
@@ -667,14 +687,45 @@ const buildMarkdownCacheKey = (baseKey: string, raw: string, index: number, mode
   return `${baseKey}:${index}:${mode}:${raw.length}:${fnv1a32(sample)}`;
 };
 
+const MARKDOWN_BLOCK_CACHE = new Map<string, MarkdownStreamBlock[]>();
+
+const getMarkdownBlockCacheEntry = (key: string): MarkdownStreamBlock[] | undefined => {
+  const cached = MARKDOWN_BLOCK_CACHE.get(key);
+  if (!cached) {
+    return undefined;
+  }
+  MARKDOWN_BLOCK_CACHE.delete(key);
+  MARKDOWN_BLOCK_CACHE.set(key, cached);
+  return cached;
+};
+
+const setMarkdownBlockCacheEntry = (key: string, blocks: MarkdownStreamBlock[]): void => {
+  while (MARKDOWN_BLOCK_CACHE.size >= MARKDOWN_BLOCK_CACHE_MAX_ENTRIES) {
+    const oldest = MARKDOWN_BLOCK_CACHE.keys().next().value;
+    if (typeof oldest !== 'string') {
+      break;
+    }
+    MARKDOWN_BLOCK_CACHE.delete(oldest);
+  }
+  MARKDOWN_BLOCK_CACHE.set(key, blocks);
+};
+
 const streamMarkdownBlocks = (text: string, live: boolean, baseKey: string): MarkdownStreamBlock[] => {
   if (!live) {
-    return [{
+    const cacheKey = `${baseKey}:final:${text.length}:${fnv1a32(text.length > 800 ? `${text.slice(0, 400)}${text.slice(-400)}` : text)}`;
+    const cached = getMarkdownBlockCacheEntry(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const blocks: MarkdownStreamBlock[] = [{
       key: buildMarkdownCacheKey(baseKey, text, 0, 'full'),
       raw: text,
       src: text,
       mode: 'full',
     }];
+    setMarkdownBlockCacheEntry(cacheKey, blocks);
+    return blocks;
   }
 
   const healed = healMarkdown(text);
@@ -855,9 +906,17 @@ const MarkdownCodeBlock: React.FC<{
   const prevCodeRef = React.useRef<string>(code);
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const { isMobile, isTablet } = useDeviceInfo();
+  const alwaysShowControls = isMobile || isTablet;
+  const [showControls, setShowControls] = React.useState(alwaysShowControls);
   const skipHighlight = exceedsLineLimit(code, getCodeHighlightLineLimit());
 
   const canPreview = language === 'html' || language === 'htm';
+
+  React.useEffect(() => {
+    if (alwaysShowControls) {
+      setShowControls(true);
+    }
+  }, [alwaysShowControls]);
 
   React.useEffect(() => {
     if (!canPreview && viewMode !== 'code') {
@@ -929,46 +988,57 @@ const MarkdownCodeBlock: React.FC<{
   }, [canPreview, code]);
 
   return (
-    <div data-component="markdown-code" className="my-4 group overflow-hidden rounded-2xl border border-border/80 bg-[var(--surface-elevated)]">
+    <div
+      data-component="markdown-code"
+      className="my-4 group overflow-hidden rounded-2xl border border-border/80 bg-[var(--surface-elevated)]"
+      onMouseEnter={() => setShowControls(true)}
+      onMouseLeave={() => {
+        if (!alwaysShowControls) {
+          setShowControls(false);
+        }
+      }}
+      onFocusCapture={() => setShowControls(true)}
+    >
       <div className="flex items-center justify-between border-b border-border/70 px-3 py-1.5">
         <span className="font-mono text-[13px] text-muted-foreground">{language}</span>
-        <div className={cn(
-          "flex items-center gap-1 transition-opacity",
-          isMobile || isTablet ? "opacity-100" : "opacity-100 md:opacity-0 md:group-hover:opacity-100"
-        )}>
-          {canPreview ? (
+        {showControls ? (
+          <div className="flex min-h-6 items-center gap-1 transition-opacity">
+            {canPreview ? (
+              <button
+                type="button"
+                onClick={() => setViewMode((mode) => (mode === 'preview' ? 'code' : 'preview'))}
+                className="p-1 rounded hover:bg-interactive-hover/60 text-muted-foreground hover:text-foreground transition-colors"
+                title={viewMode === 'preview' ? 'Show code' : 'Preview'}
+                aria-pressed={viewMode === 'preview'}
+                aria-label={viewMode === 'preview' ? 'Show code' : 'Preview HTML'}
+              >
+                {viewMode === 'preview' ? <Icon name="code" className="size-3.5" /> : <Icon name="eye" className="size-3.5" />}
+              </button>
+            ) : null}
+            {canPreview ? (
+              <button
+                type="button"
+                onClick={handleDownload}
+                className="p-1 rounded hover:bg-interactive-hover/60 text-muted-foreground hover:text-foreground transition-colors"
+                title="Download HTML"
+                aria-label="Download HTML"
+              >
+                <Icon name="download" className="size-3.5" />
+              </button>
+            ) : null}
             <button
               type="button"
-              onClick={() => setViewMode((mode) => (mode === 'preview' ? 'code' : 'preview'))}
+              onClick={() => { void handleCopy(); }}
               className="p-1 rounded hover:bg-interactive-hover/60 text-muted-foreground hover:text-foreground transition-colors"
-              title={viewMode === 'preview' ? 'Show code' : 'Preview'}
-              aria-pressed={viewMode === 'preview'}
-              aria-label={viewMode === 'preview' ? 'Show code' : 'Preview HTML'}
+              title={copied ? 'Copied' : 'Copy code'}
+              aria-label={copied ? 'Copied' : 'Copy code'}
             >
-              {viewMode === 'preview' ? <Icon name="code" className="size-3.5" /> : <Icon name="eye" className="size-3.5" />}
+              {copied ? <Icon name="check" className="size-3.5" /> : <Icon name="file-copy" className="size-3.5" />}
             </button>
-          ) : null}
-          {canPreview ? (
-            <button
-              type="button"
-              onClick={handleDownload}
-              className="p-1 rounded hover:bg-interactive-hover/60 text-muted-foreground hover:text-foreground transition-colors"
-              title="Download HTML"
-              aria-label="Download HTML"
-            >
-              <Icon name="download" className="size-3.5" />
-            </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => { void handleCopy(); }}
-            className="p-1 rounded hover:bg-interactive-hover/60 text-muted-foreground hover:text-foreground transition-colors"
-            title={copied ? 'Copied' : 'Copy code'}
-            aria-label={copied ? 'Copied' : 'Copy code'}
-          >
-            {copied ? <Icon name="check" className="size-3.5" /> : <Icon name="file-copy" className="size-3.5" />}
-          </button>
-        </div>
+          </div>
+        ) : (
+          <div className="min-h-6 min-w-6" aria-hidden="true" />
+        )}
       </div>
       {canPreview && viewMode === 'preview' ? (
         <div className="h-[320px] md:h-[420px] bg-background">
