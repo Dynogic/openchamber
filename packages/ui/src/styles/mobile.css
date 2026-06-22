@@ -498,3 +498,43 @@
     }
   }
 }
+
+/* Native (Capacitor) keyboard handling.
+   The Keyboard plugin runs in `resize: 'none'` mode so the WebView keeps its full
+   height; instead we shrink the app shell by the keyboard frame height, exposed as
+   --oc-keyboard-inset and set once from `keyboardWillShow` (see useNativeMobileChrome).
+   Scoped to .oc-capacitor-app so the browser PWA keeps its dvh / interactive-widget
+   behaviour untouched.
+
+   `keyboardWillShow` fires at the start of the iOS keyboard animation, so the inset
+   is set once and the transition carries the rise. The duration/curve are tuned to
+   mimic the native iOS keyboard (≈0.25s, cubic-bezier(0.38, 0.7, 0.125, 1)) so our
+   layout and the keyboard move together. (visualViewport live-tracking would be exact
+   but doesn't report under WKWebView's `resize: 'none'`, so this is the best signal.) */
+:root.oc-capacitor-app .oc-mobile-app-shell {
+  height: calc(100dvh - var(--oc-keyboard-inset, 0px));
+  transition: height 0.25s cubic-bezier(0.38, 0.7, 0.125, 1);
+}
+
+/* Portal surfaces (bottom sheets, overlay panels) render at <body> level, outside
+   the app shell, so they don't inherit the shell's keyboard inset. They're full-
+   height `fixed inset-0` scrims with a bottom-anchored (`mt-auto`) sheet, so raising
+   their bottom edge by the keyboard height shrinks scrim + sheet together and lifts
+   any input above the keyboard instead of hiding it underneath. The opacity term
+   preserves the scrim's enter fade (Tailwind's `transition-opacity` would otherwise
+   be overridden by this rule's `transition` shorthand). */
+:root.oc-capacitor-app .oc-keyboard-inset-surface {
+  bottom: var(--oc-keyboard-inset, 0px);
+  transition: bottom 0.25s cubic-bezier(0.38, 0.7, 0.125, 1), opacity 0.2s ease-out;
+}
+
+/* Full-screen scroll views (e.g. the connect/login screen) live outside the app
+   shell, so shrink them by the keyboard height the same way the shell does. Capping
+   the height (instead of min-height: 100dvh) is what makes overflow-y-auto actually
+   scroll, so a field near the bottom lifts above the keyboard rather than staying
+   hidden behind it. min-height: 0 neutralises the Tailwind min-h-dvh baseline. */
+:root.oc-capacitor-app .oc-keyboard-fill-screen {
+  height: calc(100dvh - var(--oc-keyboard-inset, 0px));
+  min-height: 0;
+  transition: height 0.25s cubic-bezier(0.38, 0.7, 0.125, 1);
+}

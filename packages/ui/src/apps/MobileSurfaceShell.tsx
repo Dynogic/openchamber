@@ -217,7 +217,7 @@ export const MobileSurfaceShell: React.FC<MobileSurfaceShellProps> = ({
   return createPortal(
     <div
       className={cn(
-        'fixed inset-0 z-50 flex flex-col bg-[rgb(0_0_0_/_0.45)]',
+        'oc-keyboard-inset-surface fixed inset-0 z-50 flex flex-col bg-[rgb(0_0_0_/_0.45)]',
         // The opacity transition keeps the scrim on its own compositing layer,
         // which iOS Safari clips to the viewport — without it, a static scrim
         // bleeds the dim into the bottom toolbar overscroll zone. Quick fade so

@@ -96,6 +96,16 @@ const useNativeMobileChrome = (): void => {
     if (!isCapacitorMobileApp()) return;
 
     let disposed = false;
+    const cleanup: Array<() => void> = [];
+    const root = document.documentElement;
+    // Marks the Capacitor shell so keyboard-inset CSS only applies here, not in
+    // the browser-hosted PWA (which handles the keyboard via dvh / interactive-widget).
+    root.classList.add('oc-capacitor-app');
+
+    const setInset = (px: number) => {
+      root.style.setProperty('--oc-keyboard-inset', `${Math.max(0, Math.round(px))}px`);
+    };
+
     void import('@capacitor/status-bar').then(async ({ StatusBar, Style }) => {
       if (disposed) return;
       await StatusBar.setStyle({ style: Style.Default }).catch(() => undefined);
@@ -106,10 +116,34 @@ const useNativeMobileChrome = (): void => {
     void import('@capacitor/keyboard').then(async ({ Keyboard }) => {
       if (disposed) return;
       await Keyboard.setAccessoryBarVisible({ isVisible: true }).catch(() => undefined);
+
+      // `keyboardWillShow` fires at the START of the iOS keyboard animation and
+      // carries the final height, so we set the inset once here and let the CSS
+      // transition (tuned to mimic the iOS keyboard curve/duration) carry the rise.
+      // visualViewport tracking was tried but doesn't shrink under WKWebView's
+      // `resize: 'none'`, so it never reported the keyboard — this event is the
+      // reliable signal.
+      const showHandle = await Keyboard.addListener('keyboardWillShow', (info) => {
+        root.classList.add('oc-keyboard-open');
+        setInset(info.keyboardHeight);
+      });
+      const hideHandle = await Keyboard.addListener('keyboardWillHide', () => {
+        root.classList.remove('oc-keyboard-open');
+        setInset(0);
+      });
+      if (disposed) {
+        void showHandle.remove();
+        void hideHandle.remove();
+        return;
+      }
+      cleanup.push(() => void showHandle.remove(), () => void hideHandle.remove());
     }).catch(() => undefined);
 
     return () => {
       disposed = true;
+      cleanup.forEach((remove) => remove());
+      root.classList.remove('oc-capacitor-app', 'oc-keyboard-open');
+      root.style.removeProperty('--oc-keyboard-inset');
     };
   }, []);
 };
@@ -301,8 +335,8 @@ const MobileConnectionWelcome: React.FC<{ onConnected: () => void }> = ({ onConn
   }, [conn]);
 
   return (
-    <main className="flex min-h-dvh flex-col overflow-y-auto bg-background px-6 pb-[calc(env(safe-area-inset-bottom)+28px)] pt-[calc(env(safe-area-inset-top)+28px)] text-foreground">
-      <div className="m-auto flex w-full max-w-[360px] flex-col items-center gap-9 py-8">
+    <main className="oc-keyboard-fill-screen flex min-h-dvh flex-col overflow-y-auto bg-background px-6 pb-[calc(env(safe-area-inset-bottom)+28px)] pt-[calc(env(safe-area-inset-top)+28px)] text-foreground">
+      <div className="m-auto flex w-full max-w-[360px] shrink-0 flex-col items-center gap-9 py-8">
         <div className="flex flex-col items-center gap-5 text-center">
           <OpenChamberLogo width={72} height={72} className="size-[72px]" />
           <h1 className="typography-h2 text-foreground">{t('mobile.connect.welcome.title')}</h1>
@@ -1610,7 +1644,7 @@ const MobileShell: React.FC<{ onActiveConnectionDeleted: () => void }> = ({ onAc
   return (
     <DedicatedMobileAppProvider actions={mobileActions}>
       <div
-        className="main-content-safe-area flex h-[100dvh] flex-col bg-background text-foreground"
+        className="oc-mobile-app-shell main-content-safe-area flex h-[100dvh] flex-col bg-background text-foreground"
         data-page-scroll-lock="true"
       >
         <MobileHeader
