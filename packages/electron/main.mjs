@@ -2489,6 +2489,8 @@ const setupAutoUpdater = () => {
   if (!app.isPackaged) {
     return;
   }
+  log.info('[electron] auto-updater disabled (fork build)');
+  return;
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
   autoUpdater.allowPrerelease = false;
