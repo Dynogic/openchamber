@@ -1338,7 +1338,7 @@ const resolveWorktreeProjectContext = async (directory) => {
   const commonDir = path.resolve(sandbox, commonResult.stdout.trim());
   const primaryWorktree = path.dirname(commonDir);
   const projectID = await ensureOpenCodeProjectId(primaryWorktree);
-  const worktreeRoot = path.join(getOpenCodeDataPath(), 'worktree', projectID);
+  const worktreeRoot = path.join(primaryWorktree, '.claude', 'worktrees');
 
   return {
     projectID,
