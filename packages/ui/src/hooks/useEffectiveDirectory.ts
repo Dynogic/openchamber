@@ -8,15 +8,16 @@ import { useDirectoryStore } from '@/stores/useDirectoryStore';
  * Hook that resolves the effective working directory for tabs (Git, Diff, Files, Terminal).
  *
  * Priority order:
- * 1. Worktree metadata path (for worktree sessions)
+ * 1. Worktree metadata path (for worktree sessions) — skipped when `ignoreWorktree` is true
  * 2. Session directory (for active sessions)
  * 3. Draft session directoryOverride (when creating a new session)
  * 4. Fallback directory from DirectoryStore
  *
- * This ensures that tabs show content from the correct project directory
- * even when a draft session is being created.
+ * @param options.ignoreWorktree — Skip worktree metadata/attachment resolution.
+ *   Use this for the terminal so it stays in the project root even when a
+ *   session is attached to a worktree for git viewing.
  */
-export const useEffectiveDirectory = (): string | undefined => {
+export const useEffectiveDirectory = (options?: { ignoreWorktree?: boolean }): string | undefined => {
     const currentSessionId = useSessionUIStore((s) => s.currentSessionId);
     const newSessionDraft = useSessionUIStore((s) => s.newSessionDraft);
     const currentSessionDirectory = useSessionDirectory(currentSessionId);
@@ -26,13 +27,15 @@ export const useEffectiveDirectory = (): string | undefined => {
 
     // If we have an active session, use its directory
     if (currentSessionId) {
-        const attachmentDirectory = getAttachedSessionDirectory(worktreeAttachment);
-        if (attachmentDirectory) {
-            return attachmentDirectory;
-        }
-        const worktreeMetadata = worktreeMap.get(currentSessionId);
-        if (worktreeMetadata?.path) {
-            return worktreeMetadata.path;
+        if (!options?.ignoreWorktree) {
+            const attachmentDirectory = getAttachedSessionDirectory(worktreeAttachment);
+            if (attachmentDirectory) {
+                return attachmentDirectory;
+            }
+            const worktreeMetadata = worktreeMap.get(currentSessionId);
+            if (worktreeMetadata?.path) {
+                return worktreeMetadata.path;
+            }
         }
         if (currentSessionDirectory) {
             return currentSessionDirectory;

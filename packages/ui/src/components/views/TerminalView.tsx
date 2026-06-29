@@ -103,7 +103,7 @@ export const TerminalView: React.FC = () => {
     const newSessionDraft = useSessionUIStore((s) => s.newSessionDraft);
     const hasActiveContext = currentSessionId !== null || newSessionDraft?.open === true;
 
-    const effectiveDirectory = useEffectiveDirectory() ?? null;
+    const effectiveDirectory = useEffectiveDirectory({ ignoreWorktree: true }) ?? null;
     const terminalSessions = useTerminalStore((s) => s.sessions);
     const terminalHydrated = useTerminalStore((s) => s.hasHydrated);
     const ensureDirectory = useTerminalStore((s) => s.ensureDirectory);
