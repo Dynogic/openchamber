@@ -396,7 +396,6 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.session.menu.exportMarkdown': '导出 Markdown',
   'sessions.sidebar.session.menu.runFusion': '运行融合',
   'sessions.sidebar.session.menu.attachToWorktree': '关联到工作树',
-  'sessions.sidebar.session.menu.detachFromWorktree': '取消关联工作树',
   'sessions.sidebar.session.menu.openInSidePanel': '在侧边面板中打开',
   'sessions.sidebar.session.actions.openInEditor': '在编辑器中打开',
   'sessions.sidebar.session.menu.betaBadge': '测试版',

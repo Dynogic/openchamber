@@ -396,7 +396,6 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.session.menu.exportMarkdown': 'Markdown 내보내기',
   'sessions.sidebar.session.menu.runFusion': 'fusion 실행',
   'sessions.sidebar.session.menu.attachToWorktree': '워크트리에 연결',
-  'sessions.sidebar.session.menu.detachFromWorktree': '워크트리 연결 해제',
   'sessions.sidebar.session.menu.openInSidePanel': '사이드 패널에서 열기',
   'sessions.sidebar.session.actions.openInEditor': '편집기에서 열기',
   'sessions.sidebar.session.menu.betaBadge': 'beta',

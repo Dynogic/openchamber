@@ -863,20 +863,15 @@ function SessionNodeItemComponent(props: Props): React.ReactNode {
         );
       })() : null}
 
-      {!isVSCode && !archivedBucket ? (() => {
-        const hasOverride = Boolean(getWorktreeOverride(resolvedSession));
-        return (
-          <Item
-            onClick={() => setWorktreeDialogOpen(true)}
-            className="[&>svg]:mr-1"
-          >
-            <Icon name={hasOverride ? 'git-branch' : 'git-branch'} className="mr-1 h-4 w-4" />
-            {hasOverride
-              ? t('sessions.sidebar.session.menu.detachFromWorktree')
-              : t('sessions.sidebar.session.menu.attachToWorktree')}
-          </Item>
-        );
-      })() : null}
+      {!isVSCode && !archivedBucket ? (
+        <Item
+          onClick={() => setWorktreeDialogOpen(true)}
+          className="[&>svg]:mr-1"
+        >
+          <Icon name="git-branch" className="mr-1 h-4 w-4" />
+          {t('sessions.sidebar.session.menu.attachToWorktree')}
+        </Item>
+      ) : null}
 
       {!isVSCode ? (
         <Item

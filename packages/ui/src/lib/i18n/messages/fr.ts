@@ -284,7 +284,6 @@ export const dict = {
   'sessions.sidebar.session.menu.exportMarkdown': 'Exporter le Markdown',
   'sessions.sidebar.session.menu.runFusion': 'Exécuter la fusion',
   'sessions.sidebar.session.menu.attachToWorktree': 'Attacher au worktree',
-  'sessions.sidebar.session.menu.detachFromWorktree': 'Détacher du worktree',
   'sessions.sidebar.session.menu.openInSidePanel': 'Ouvrir dans le panneau latéral',
   'sessions.sidebar.session.actions.openInEditor': 'Ouvrir dans l\'éditeur',
   'sessions.sidebar.session.menu.betaBadge': 'bêta',

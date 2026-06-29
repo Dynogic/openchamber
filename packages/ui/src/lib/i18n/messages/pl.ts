@@ -205,7 +205,6 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.session.menu.exportMarkdown': 'Eksportuj Markdown',
   'sessions.sidebar.session.menu.runFusion': 'Uruchom fusion',
   'sessions.sidebar.session.menu.attachToWorktree': 'Dołącz do worktree',
-  'sessions.sidebar.session.menu.detachFromWorktree': 'Odłącz od worktree',
   'sessions.sidebar.session.menu.openInSidePanel': 'Otwórz w panelu bocznym',
   'sessions.sidebar.session.actions.openInEditor': 'Otwórz w edytorze',
   'sessions.sidebar.session.menu.betaBadge': 'beta',
