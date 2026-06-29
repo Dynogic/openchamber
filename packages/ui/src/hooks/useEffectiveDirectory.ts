@@ -23,11 +23,19 @@ export const useEffectiveDirectory = (options?: { ignoreWorktree?: boolean }): s
     const currentSessionDirectory = useSessionDirectory(currentSessionId);
     const worktreeAttachment = useSessionWorktreeStore((s) => currentSessionId ? s.getAttachment(currentSessionId) : undefined);
     const worktreeMap = useSessionUIStore((s) => s.worktreeMetadata);
+    const virtualWorktreeDirectory = useSessionUIStore((s) => s.virtualWorktreeDirectory);
     const fallbackDirectory = useDirectoryStore((s) => s.currentDirectory);
 
     // If we have an active session, use its directory
     if (currentSessionId) {
         if (!options?.ignoreWorktree) {
+            // Virtual worktree override (from "Set virtual worktree" — viewing only,
+            // does not move the session in the sidebar)
+            const virtualDir = virtualWorktreeDirectory.get(currentSessionId);
+            if (virtualDir) {
+                return virtualDir;
+            }
+            // Real worktree attachment (session created in a worktree)
             const attachmentDirectory = getAttachedSessionDirectory(worktreeAttachment);
             if (attachmentDirectory) {
                 return attachmentDirectory;

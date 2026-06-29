@@ -228,6 +228,7 @@ export type SessionUIState = {
   abortPromptExpiresAt: number | null
   error: string | null
   worktreeMetadata: Map<string, WorktreeMetadata>
+  virtualWorktreeDirectory: Map<string, string>
   availableWorktrees: WorktreeMetadata[]
   availableWorktreesByProject: Map<string, WorktreeMetadata[]>
   webUICreatedSessions: Set<string>
@@ -261,6 +262,7 @@ export type SessionUIState = {
   getContextUsage: (contextLimit: number, outputLimit: number) => SessionContextUsage | null
   initializeNewOpenChamberSession: (sessionId: string, agents: unknown[]) => void
   setWorktreeMetadata: (sessionId: string, metadata: WorktreeMetadata | null) => void
+  setVirtualWorktreeDirectory: (sessionId: string, directory: string | null) => void
   overrideNewSessionDraftTarget: (options: Record<string, unknown>) => void
   resolvePendingDraftWorktreeTarget: (requestId: string, directory: string | null, options?: Record<string, unknown>) => void
   setDraftBootstrapPendingDirectory: (directory: string | null) => void
@@ -551,6 +553,7 @@ export const useSessionUIStore = create<SessionUIState>()((set, get) => ({
   abortPromptExpiresAt: null,
   error: null,
   worktreeMetadata: new Map(),
+  virtualWorktreeDirectory: new Map(),
   availableWorktrees: flattenWorktreeMap(PERSISTED_WORKTREE_MAP),
   availableWorktreesByProject: PERSISTED_WORKTREE_MAP,
   webUICreatedSessions: new Set(),
@@ -923,6 +926,15 @@ export const useSessionUIStore = create<SessionUIState>()((set, get) => ({
       if (metadata) map.set(sessionId, metadata)
       else map.delete(sessionId)
       return { worktreeMetadata: map }
+    })
+  },
+
+  setVirtualWorktreeDirectory: (sessionId, directory) => {
+    set((s) => {
+      const map = new Map(s.virtualWorktreeDirectory)
+      if (directory) map.set(sessionId, directory)
+      else map.delete(sessionId)
+      return { virtualWorktreeDirectory: map }
     })
   },
 

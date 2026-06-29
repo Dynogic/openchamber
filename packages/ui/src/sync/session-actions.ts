@@ -1141,22 +1141,11 @@ export async function attachSessionToWorktree(
     const nextMetadata = withWorktreeOverride(getSessionMetadata(current), worktreeDirectory)
     const updated = await opencodeClient.updateSession(sessionId, { metadata: nextMetadata }, sessionDirectory)
 
-    // Set worktree metadata in UI store so the change is instant.
-    // The sidebar grouping and effectiveDirectory both check worktreeMetadata.
-    const availableWorktreesByProject = useSessionUIStore.getState().availableWorktreesByProject
-    for (const worktrees of availableWorktreesByProject.values()) {
-      const match = worktrees.find((wt) => {
-        const wtPath = wt.path.replace(/\\/g, '/').replace(/\/+$/, '')
-        const target = worktreeDirectory.replace(/\\/g, '/').replace(/\/+$/, '')
-        return wtPath === target
-      })
-      if (match) {
-        useSessionUIStore.getState().setWorktreeMetadata(sessionId, match)
-        break
-      }
-    }
+    // Set virtual worktree directory in UI store — only affects git/diff views
+    // via useEffectiveDirectory, NOT the sidebar grouping (which uses
+    // worktreeMetadata). The session stays under its project root in the sidebar.
+    useSessionUIStore.getState().setVirtualWorktreeDirectory(sessionId, worktreeDirectory)
 
-    registerSessionDirectory(sessionId, worktreeDirectory)
     useGlobalSessionsStore.getState().upsertSession(updated)
 
     return true
@@ -1179,7 +1168,7 @@ export async function detachSessionFromWorktree(sessionId: string): Promise<bool
     const nextMetadata = withoutWorktreeOverride(getSessionMetadata(current))
     const updated = await opencodeClient.updateSession(sessionId, { metadata: nextMetadata }, sessionDirectory)
 
-    useSessionUIStore.getState().setWorktreeMetadata(sessionId, null)
+    useSessionUIStore.getState().setVirtualWorktreeDirectory(sessionId, null)
     useGlobalSessionsStore.getState().upsertSession(updated)
 
     return true

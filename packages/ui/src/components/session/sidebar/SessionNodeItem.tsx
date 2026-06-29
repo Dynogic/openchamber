@@ -42,7 +42,7 @@ import { FusionIcon } from '@/components/icons/FusionIcon';
 import { RuntimeAPIContext } from '@/contexts/runtimeAPIContext';
 import { AttachToWorktreeDialog } from '@/components/session/AttachToWorktreeDialog';
 import { attachSessionToWorktree, detachSessionFromWorktree } from '@/sync/session-actions';
-import { getWorktreeOverride } from '@/lib/sessionReviewMetadata';
+import { useSessionUIStore } from '@/sync/session-ui-store';
 
 type Folder = { id: string; name: string; sessionIds: string[] };
 
@@ -307,6 +307,9 @@ function SessionNodeItemComponent(props: Props): React.ReactNode {
   const formRef = React.useRef<HTMLFormElement>(null);
 
   const session = node.session;
+  const hasVirtualWorktree = useSessionUIStore(
+    React.useCallback((state) => Boolean(state.virtualWorktreeDirectory.get(session.id)), [session.id]),
+  );
   // Batched live-session lookup. `liveSessionById` is built once per
   // Sidebar render from the same `useAllLiveSessions` selector that
   // `useSession` would have iterated per child-store, so a Map.get
@@ -1270,7 +1273,7 @@ function SessionNodeItemComponent(props: Props): React.ReactNode {
           onOpenChange={setWorktreeDialogOpen}
           session={resolvedSession}
           submitting={worktreeSubmitting}
-          hasOverride={Boolean(getWorktreeOverride(resolvedSession))}
+          hasOverride={hasVirtualWorktree}
           onConfirm={async (targetDirectory) => {
             setWorktreeSubmitting(true);
             try {

@@ -2006,9 +2006,6 @@ export function SyncProvider(props: {
     })
     setWorktreeOverrideDeps({
       useSessionUIStore,
-      registerSessionDirectory: (sessionID, dir) => {
-        setIndexedSessionDirectory(routingIndex, sessionID, dir)
-      },
     })
     setActionRefs(
       props.sdk,

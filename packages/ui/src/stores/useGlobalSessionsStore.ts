@@ -5,19 +5,15 @@ import { listGlobalSessionPages } from '@/stores/globalSessions';
 import { getReviewTransferDirection, type ReviewTransferDirection } from '@/lib/reviewFlow';
 import { getOriginalSessionID, getReviewSessionID, getWorktreeOverride } from '@/lib/sessionReviewMetadata';
 import type { useSessionUIStore as SessionUIStoreType } from '@/sync/session-ui-store';
-import type { registerSessionDirectory as RegisterSessionDirectoryType } from '@/sync/sync-refs';
 
-// Lazy refs to avoid circular dependency: session-ui-store imports from
+// Lazy ref to avoid circular dependency: session-ui-store imports from
 // useGlobalSessionsStore, so we can't import it at module load time.
 let useSessionUIStoreRef: typeof SessionUIStoreType | null = null;
-let registerSessionDirectoryRef: typeof RegisterSessionDirectoryType | null = null;
 
 export const setWorktreeOverrideDeps = (deps: {
   useSessionUIStore: typeof SessionUIStoreType;
-  registerSessionDirectory: typeof RegisterSessionDirectoryType;
 }) => {
   useSessionUIStoreRef = deps.useSessionUIStore;
-  registerSessionDirectoryRef = deps.registerSessionDirectory;
 };
 
 type GlobalSessionsStatus = 'idle' | 'loading' | 'ready' | 'error';
@@ -615,24 +611,11 @@ export const refreshGlobalSessionsForDirectories = async (
 export const restoreWorktreeOverrides = (sessions: Session[]): void => {
   const uiStore = useSessionUIStoreRef?.getState();
   if (!uiStore) return;
-  const availableWorktreesByProject = uiStore.availableWorktreesByProject;
 
   for (const session of sessions) {
     const override = getWorktreeOverride(session);
     if (!override) continue;
 
-    registerSessionDirectoryRef?.(session.id, override);
-
-    for (const worktrees of availableWorktreesByProject.values()) {
-      const match = worktrees.find((wt) => {
-        const wtPath = wt.path.replace(/\\/g, '/').replace(/\/+$/, '');
-        const target = override.replace(/\\/g, '/').replace(/\/+$/, '');
-        return wtPath === target;
-      });
-      if (match) {
-        uiStore.setWorktreeMetadata(session.id, match);
-        break;
-      }
-    }
+    uiStore.setVirtualWorktreeDirectory(session.id, override);
   }
 };
