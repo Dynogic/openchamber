@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseArgs } from './cli-args.js';
-import { truncate, formatRelativeTime, formatModel } from './cli-format.js';
+import { truncate, formatRelativeTime, formatModel, formatSchedule, formatInstant } from './cli-format.js';
 import { resolveScopeDirectory } from './cli-api-client.js';
 
 describe('cli-format helpers', () => {
@@ -24,6 +24,24 @@ describe('cli-format helpers', () => {
     expect(formatModel({ providerID: 'google', modelID: 'gemini' })).toBe('google/gemini');
     expect(formatModel({ id: 'solo' })).toBe('solo');
     expect(formatModel(null)).toBe('');
+  });
+
+  it('formats schedule summaries for each kind', () => {
+    expect(formatSchedule({ kind: 'daily', times: ['09:00', '17:30'], timezone: 'UTC' }))
+      .toBe('daily at 09:00, 17:30 (UTC)');
+    expect(formatSchedule({ kind: 'weekly', times: ['08:00'], weekdays: [1, 3, 5], timezone: 'UTC' }))
+      .toBe('weekly on Mon, Wed, Fri at 08:00 (UTC)');
+    expect(formatSchedule({ kind: 'once', date: '2026-04-16', time: '13:30', timezone: 'UTC' }))
+      .toBe('once on 2026-04-16 13:30 (UTC)');
+    expect(formatSchedule({ kind: 'cron', cron: '0 2 * * *', timezone: 'UTC' }))
+      .toBe('cron "0 2 * * *" (UTC)');
+    expect(formatSchedule(null)).toBe('unknown schedule');
+  });
+
+  it('formats instants in a timezone and guards empty values', () => {
+    expect(formatInstant(Date.UTC(2026, 3, 16, 13, 30, 0), 'UTC')).toBe('2026-04-16 13:30');
+    expect(formatInstant(0, 'UTC')).toBeNull();
+    expect(formatInstant(undefined)).toBeNull();
   });
 });
 
@@ -63,6 +81,32 @@ describe('parseArgs resource flags', () => {
     const parsed = parseArgs(['mcp', 'create', 'fs', '--command', 'npx server']);
     expect(parsed.command).toBe('mcp');
     expect(parsed.options.commandStr).toBe('npx server');
+  });
+
+  it('parses schedule flags (project/kind/at/on/cron/timezone/disabled)', () => {
+    const parsed = parseArgs([
+      'schedule', 'create', 'Daily Standup',
+      '--project', '/home/me/app',
+      '--kind', 'weekly',
+      '--at', '09:00,17:30',
+      '--on', 'mon,wed',
+      '--timezone', 'UTC',
+      '--disabled',
+    ]);
+    expect(parsed.command).toBe('schedule');
+    expect(parsed.positionals).toEqual(['schedule', 'create', 'Daily Standup']);
+    expect(parsed.options.projectId).toBe('/home/me/app');
+    expect(parsed.options.kind).toBe('weekly');
+    expect(parsed.options.at).toBe('09:00,17:30');
+    expect(parsed.options.on).toBe('mon,wed');
+    expect(parsed.options.timezone).toBe('UTC');
+    expect(parsed.options.disabled).toBe(true);
+  });
+
+  it('parses --cron and --tz alias for schedule', () => {
+    const parsed = parseArgs(['schedule', 'create', 'nightly', '--cron', '0 2 * * *', '--tz', 'Europe/London']);
+    expect(parsed.options.cron).toBe('0 2 * * *');
+    expect(parsed.options.timezone).toBe('Europe/London');
   });
 
   it('parses scope, template, prompt, content, and description flags', () => {

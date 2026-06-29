@@ -54,6 +54,10 @@ Command modules implement user-facing commands and preserve output contracts acr
   - Implements the config/settings resource commands that mirror the Settings menus: `agent`, `command` (slash commands), `skill`, `mcp`, `snippet`, `provider`, `project`, and `config`.
   - Each group exposes read actions (`list`/`show`/`models`/`get`) and, where the server supports it, safe `create`/`delete` mutations. Shared `renderList`/`renderMutation`/`confirmDestructive` helpers keep output and validation consistent across modes.
 
+- `commands-schedule.js`
+  - Implements `openchamber schedule` and its actions: `list`, `show`, `create`, `run`, `enable`, `disable`, `delete`, and `status`. Mirrors the scheduled-tasks menu functions over the per-project `/api/projects/:projectId/scheduled-tasks` routes plus the global `/api/openchamber/scheduled-tasks/status`.
+  - Resolves the OpenChamber project via `resolveProjectId` (explicit `--project`, scope directory, active project, or sole project) and builds schedule objects (daily/weekly/once/cron) from flags. Destructive `delete` is gated by confirmation/`--force` in every mode.
+
 ## Shared Helper Modules
 
 These modules hold reusable, non-presentational logic for commands.
