@@ -2482,7 +2482,7 @@ const compareSemver = (left, right) => {
 };
 
 const parseGithubRepo = () => {
-  return { owner: 'openchamber', repo: 'openchamber' };
+  return { owner: 'sol', repo: 'openchamber' };
 };
 
 const setupAutoUpdater = () => {

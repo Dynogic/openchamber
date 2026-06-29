@@ -25,6 +25,8 @@ import {
   getSessionMetadata,
   isReviewSession,
   withoutReviewSessionLink,
+  withoutWorktreeOverride,
+  withWorktreeOverride,
   type SessionMetadataRecord,
 } from "@/lib/sessionReviewMetadata"
 
@@ -1118,6 +1120,73 @@ export async function forkFromMessage(sessionId: string, messageId: string): Pro
   }
   // Clear existing attachments and restore file parts from the forked message.
   restoreFilePartsToInput(fileParts)
+}
+
+/**
+ * Attach a session to a worktree directory by writing `worktreeOverride`
+ * to the session's server-side metadata. This is the only persistent field
+ * we can write to (the SDK doesn't expose directory updates), so we store
+ * the worktree path in metadata and restore it on load via
+ * `restoreWorktreeOverrides`. All UI components that use
+ * `useEffectiveDirectory` (diff panel, git view, etc.) automatically
+ * pick up the worktree directory from `worktreeMetadata`.
+ */
+export async function attachSessionToWorktree(
+  sessionId: string,
+  worktreeDirectory: string,
+): Promise<boolean> {
+  try {
+    const sessionDirectory = getSessionDirectory(sessionId) ?? worktreeDirectory
+    const current = await opencodeClient.getSession(sessionId, sessionDirectory)
+    const nextMetadata = withWorktreeOverride(getSessionMetadata(current), worktreeDirectory)
+    const updated = await opencodeClient.updateSession(sessionId, { metadata: nextMetadata }, sessionDirectory)
+
+    // Set worktree metadata in UI store so the change is instant.
+    // The sidebar grouping and effectiveDirectory both check worktreeMetadata.
+    const availableWorktreesByProject = useSessionUIStore.getState().availableWorktreesByProject
+    for (const worktrees of availableWorktreesByProject.values()) {
+      const match = worktrees.find((wt) => {
+        const wtPath = wt.path.replace(/\\/g, '/').replace(/\/+$/, '')
+        const target = worktreeDirectory.replace(/\\/g, '/').replace(/\/+$/, '')
+        return wtPath === target
+      })
+      if (match) {
+        useSessionUIStore.getState().setWorktreeMetadata(sessionId, match)
+        break
+      }
+    }
+
+    registerSessionDirectory(sessionId, worktreeDirectory)
+    useGlobalSessionsStore.getState().upsertSession(updated)
+
+    return true
+  } catch (error) {
+    console.error("[session-actions] attachSessionToWorktree failed", error)
+    return false
+  }
+}
+
+/**
+ * Detach a session from its worktree override. Removes the `worktreeOverride`
+ * from metadata and clears the worktreeMetadata in the UI store.
+ */
+export async function detachSessionFromWorktree(sessionId: string): Promise<boolean> {
+  try {
+    const sessionDirectory = getSessionDirectory(sessionId)
+    if (!sessionDirectory) return false
+
+    const current = await opencodeClient.getSession(sessionId, sessionDirectory)
+    const nextMetadata = withoutWorktreeOverride(getSessionMetadata(current))
+    const updated = await opencodeClient.updateSession(sessionId, { metadata: nextMetadata }, sessionDirectory)
+
+    useSessionUIStore.getState().setWorktreeMetadata(sessionId, null)
+    useGlobalSessionsStore.getState().upsertSession(updated)
+
+    return true
+  } catch (error) {
+    console.error("[session-actions] detachSessionFromWorktree failed", error)
+    return false
+  }
 }
 
 // ---------------------------------------------------------------------------

@@ -3,7 +3,22 @@ import type { OpencodeClient, Session } from '@opencode-ai/sdk/v2';
 import { opencodeClient } from '@/lib/opencode/client';
 import { listGlobalSessionPages } from '@/stores/globalSessions';
 import { getReviewTransferDirection, type ReviewTransferDirection } from '@/lib/reviewFlow';
-import { getOriginalSessionID, getReviewSessionID } from '@/lib/sessionReviewMetadata';
+import { getOriginalSessionID, getReviewSessionID, getWorktreeOverride } from '@/lib/sessionReviewMetadata';
+import type { useSessionUIStore as SessionUIStoreType } from '@/sync/session-ui-store';
+import type { registerSessionDirectory as RegisterSessionDirectoryType } from '@/sync/sync-refs';
+
+// Lazy refs to avoid circular dependency: session-ui-store imports from
+// useGlobalSessionsStore, so we can't import it at module load time.
+let useSessionUIStoreRef: typeof SessionUIStoreType | null = null;
+let registerSessionDirectoryRef: typeof RegisterSessionDirectoryType | null = null;
+
+export const setWorktreeOverrideDeps = (deps: {
+  useSessionUIStore: typeof SessionUIStoreType;
+  registerSessionDirectory: typeof RegisterSessionDirectoryType;
+}) => {
+  useSessionUIStoreRef = deps.useSessionUIStore;
+  registerSessionDirectoryRef = deps.registerSessionDirectory;
+};
 
 type GlobalSessionsStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -396,12 +411,14 @@ export const useGlobalSessionsStore = create<GlobalSessionsState>((set, get) => 
         }
 
         set((state) => applySnapshot(state, nextActiveSessions, nextArchivedSessions, 'ready'));
+        restoreWorktreeOverrides([...nextActiveSessions, ...nextArchivedSessions]);
         return { activeSessions: nextActiveSessions, archivedSessions: nextArchivedSessions };
       } catch (error) {
         const nextActiveSessions = mergeSessionLists(current.activeSessions, fallbackActive);
         const nextArchivedSessions = current.archivedSessions;
         console.warn('[GlobalSessions] Failed to load sessions, using fallback snapshot:', error);
         set((state) => applySnapshot(state, nextActiveSessions, nextArchivedSessions, 'error'));
+        restoreWorktreeOverrides([...nextActiveSessions, ...nextArchivedSessions]);
         return { activeSessions: nextActiveSessions, archivedSessions: nextArchivedSessions };
       } finally {
         inflightLoad = null;
@@ -588,4 +605,34 @@ export const refreshGlobalSessionsForDirectories = async (
   fallbackActive?: Session[],
 ): Promise<LoadResult> => {
   return useGlobalSessionsStore.getState().refreshSessionsForDirectories(directories, fallbackActive);
+};
+
+/**
+ * Restore worktreeMetadata and session-directory routing for sessions that
+ * have a worktreeOverride in their server-side metadata. Called after session
+ * list loads to ensure worktree-attached sessions survive refresh.
+ */
+export const restoreWorktreeOverrides = (sessions: Session[]): void => {
+  const uiStore = useSessionUIStoreRef?.getState();
+  if (!uiStore) return;
+  const availableWorktreesByProject = uiStore.availableWorktreesByProject;
+
+  for (const session of sessions) {
+    const override = getWorktreeOverride(session);
+    if (!override) continue;
+
+    registerSessionDirectoryRef?.(session.id, override);
+
+    for (const worktrees of availableWorktreesByProject.values()) {
+      const match = worktrees.find((wt) => {
+        const wtPath = wt.path.replace(/\\/g, '/').replace(/\/+$/, '');
+        const target = override.replace(/\\/g, '/').replace(/\/+$/, '');
+        return wtPath === target;
+      });
+      if (match) {
+        uiStore.setWorktreeMetadata(session.id, match);
+        break;
+      }
+    }
+  }
 };

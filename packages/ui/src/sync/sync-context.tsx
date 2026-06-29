@@ -46,7 +46,8 @@ import { getRuntimeKey } from "@/lib/runtime-switch"
 import { getRegisteredRuntimeAPIs } from "@/contexts/runtimeAPIRegistry"
 import { setSessionPrefetch } from "./session-prefetch-cache"
 import { listGlobalSessionPages } from "@/stores/globalSessions"
-import { useGlobalSessionsStore } from "@/stores/useGlobalSessionsStore"
+import { useGlobalSessionsStore, setWorktreeOverrideDeps } from "@/stores/useGlobalSessionsStore"
+import { useSessionUIStore } from "./session-ui-store"
 import { areRequestArraysReferentiallyEqual, collectScopedBlockingRequests } from "./scoped-blocking-requests"
 import { EMPTY_USER_MESSAGE_HISTORY_SNAPSHOT, buildUserMessageHistorySnapshot, type UserMessageHistorySnapshot } from "./user-message-history"
 
@@ -2002,6 +2003,12 @@ export function SyncProvider(props: {
   useEffect(() => {
     setSyncRefs(props.sdk, childStores, props.directory, (sessionID, dir) => {
       setIndexedSessionDirectory(routingIndex, sessionID, dir)
+    })
+    setWorktreeOverrideDeps({
+      useSessionUIStore,
+      registerSessionDirectory: (sessionID, dir) => {
+        setIndexedSessionDirectory(routingIndex, sessionID, dir)
+      },
     })
     setActionRefs(
       props.sdk,

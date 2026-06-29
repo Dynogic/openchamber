@@ -40,6 +40,9 @@ import { parseMultiRunSessionTitle } from '@/lib/multirun/title';
 import { MultiRunFusionDialog } from '@/components/multirun/MultiRunFusionDialog';
 import { FusionIcon } from '@/components/icons/FusionIcon';
 import { RuntimeAPIContext } from '@/contexts/runtimeAPIContext';
+import { AttachToWorktreeDialog } from '@/components/session/AttachToWorktreeDialog';
+import { attachSessionToWorktree, detachSessionFromWorktree } from '@/sync/session-actions';
+import { getWorktreeOverride } from '@/lib/sessionReviewMetadata';
 
 type Folder = { id: string; name: string; sessionIds: string[] };
 
@@ -373,6 +376,8 @@ function SessionNodeItemComponent(props: Props): React.ReactNode {
   const isSessionMenuOpen = isMenuOpen || isContextMenuOpen;
   const isMultiRunLikeSession = React.useMemo(() => parseMultiRunSessionTitle(resolvedSession.title) !== null, [resolvedSession.title]);
   const [fusionDialogOpen, setFusionDialogOpen] = React.useState(false);
+  const [worktreeDialogOpen, setWorktreeDialogOpen] = React.useState(false);
+  const [worktreeSubmitting, setWorktreeSubmitting] = React.useState(false);
   const metadataSubsessionChevron = isVSCode && renderContext === 'recent' && !isMinimalMode;
   const inlineSubsessionChevron = isVSCode && renderContext === 'recent' && isMinimalMode;
 
@@ -858,6 +863,21 @@ function SessionNodeItemComponent(props: Props): React.ReactNode {
         );
       })() : null}
 
+      {!isVSCode && !archivedBucket ? (() => {
+        const hasOverride = Boolean(getWorktreeOverride(resolvedSession));
+        return (
+          <Item
+            onClick={() => setWorktreeDialogOpen(true)}
+            className="[&>svg]:mr-1"
+          >
+            <Icon name={hasOverride ? 'git-branch' : 'git-branch'} className="mr-1 h-4 w-4" />
+            {hasOverride
+              ? t('sessions.sidebar.session.menu.detachFromWorktree')
+              : t('sessions.sidebar.session.menu.attachToWorktree')}
+          </Item>
+        );
+      })() : null}
+
       {!isVSCode ? (
         <Item
           disabled={!sessionDirectory}
@@ -1247,6 +1267,47 @@ function SessionNodeItemComponent(props: Props): React.ReactNode {
           session={resolvedSession}
           open={fusionDialogOpen}
           onOpenChange={setFusionDialogOpen}
+        />
+      ) : null}
+      {!isVSCode && !archivedBucket ? (
+        <AttachToWorktreeDialog
+          open={worktreeDialogOpen}
+          onOpenChange={setWorktreeDialogOpen}
+          session={resolvedSession}
+          submitting={worktreeSubmitting}
+          hasOverride={Boolean(getWorktreeOverride(resolvedSession))}
+          onConfirm={async (targetDirectory) => {
+            setWorktreeSubmitting(true);
+            try {
+              const ok = await attachSessionToWorktree(session.id, targetDirectory);
+              if (ok) {
+                toast.success(t('sessions.sidebar.attachToWorktree.success'));
+                setWorktreeDialogOpen(false);
+              } else {
+                toast.error(t('sessions.sidebar.attachToWorktree.error'));
+              }
+            } catch {
+              toast.error(t('sessions.sidebar.attachToWorktree.error'));
+            } finally {
+              setWorktreeSubmitting(false);
+            }
+          }}
+          onDetach={async () => {
+            setWorktreeSubmitting(true);
+            try {
+              const ok = await detachSessionFromWorktree(session.id);
+              if (ok) {
+                toast.success(t('sessions.sidebar.attachToWorktree.detachSuccess'));
+                setWorktreeDialogOpen(false);
+              } else {
+                toast.error(t('sessions.sidebar.attachToWorktree.detachError'));
+              }
+            } catch {
+              toast.error(t('sessions.sidebar.attachToWorktree.detachError'));
+            } finally {
+              setWorktreeSubmitting(false);
+            }
+          }}
         />
       ) : null}
     </React.Fragment>

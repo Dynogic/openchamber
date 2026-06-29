@@ -6,6 +6,7 @@ type OpenChamberMetadata = {
   kind?: 'review';
   originalSessionID?: string;
   reviewSessionID?: string;
+  worktreeOverride?: string;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -72,6 +73,40 @@ export const withoutReviewSessionLink = (
 
   const restOpenChamber = { ...current };
   delete restOpenChamber.reviewSessionID;
+  const next: SessionMetadataRecord = { ...metadata };
+  if (Object.keys(restOpenChamber).length > 0) {
+    next.openchamber = restOpenChamber;
+  } else {
+    delete next.openchamber;
+  }
+  return next;
+};
+
+export const getWorktreeOverride = (session: Session | null | undefined): string | null => {
+  const value = getOpenChamberMetadata(getSessionMetadata(session)).worktreeOverride;
+  return typeof value === 'string' && value.trim().length > 0 ? value : null;
+};
+
+export const withWorktreeOverride = (
+  metadata: SessionMetadataRecord,
+  worktreePath: string,
+): SessionMetadataRecord => {
+  const current = getOpenChamberMetadata(metadata);
+  return {
+    ...metadata,
+    openchamber: {
+      ...current,
+      worktreeOverride: worktreePath,
+    },
+  };
+};
+
+export const withoutWorktreeOverride = (
+  metadata: SessionMetadataRecord,
+): SessionMetadataRecord => {
+  const current = getOpenChamberMetadata(metadata);
+  const restOpenChamber = { ...current };
+  delete restOpenChamber.worktreeOverride;
   const next: SessionMetadataRecord = { ...metadata };
   if (Object.keys(restOpenChamber).length > 0) {
     next.openchamber = restOpenChamber;
