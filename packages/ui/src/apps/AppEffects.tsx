@@ -63,7 +63,7 @@ export function SyncRuntimeEffects({ embeddedBackgroundWorkEnabled }: {
   embeddedBackgroundWorkEnabled: boolean;
 }) {
   useSessionAutoCleanup(embeddedBackgroundWorkEnabled);
-  useQueuedMessageAutoSend(embeddedBackgroundWorkEnabled);
+  useQueuedMessageAutoSend(false);
 
   return <SyncOptimisticBridge />;
 }
